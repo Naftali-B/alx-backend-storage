@@ -1,5 +1,5 @@
-# creates a table users
-# If the table exists, script does not fail
+-- creates a table users
+-- If the table exists, script does not fail
 
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
