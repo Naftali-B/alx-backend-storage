@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-    String Redis
+String Redis
 """
 from uuid import uuid4
 from typing import Union, Callable
@@ -26,9 +26,9 @@ def call_history(method: Callable) -> Callable:
 
     @wraps(method)
     def wrapper(self, *args, **kwargs):
-        """ Wraper function """
-        input: str = str(args)
-        self._redis.rpush(method.__qualname__ + ":inputs", input)
+        """ Wrapper function """
+        input_str: str = str(args)
+        self._redis.rpush(method.__qualname__ + ":inputs", input_str)
 
         output = str(method(self, *args, **kwargs))
         self._redis.rpush(method.__qualname__ + ":outputs", output)
@@ -55,14 +55,8 @@ def replay(func: Callable):
     outs = r.lrange(func_name + ":outputs", 0, -1)
 
     for cin, cout in zip(ins, outs):
-        try:
-            cin = cin.decode('utf-8')
-        except Exception:
-            cin = ""
-        try:
-            cout = cout.decode('utf-8')
-        except Exception:
-            cout = ""
+        cin = cin.decode('utf-8')
+        cout = cout.decode('utf-8')
 
         print(f'{func_name}(*{cin}) -> {cout}')
 
@@ -103,23 +97,39 @@ class Cache:
             Return:
                 Key or number uuid
         """
-        key = self._redit.get(key)
+        value = self._redis.get(key)
 
         if fn:
-            return fn(key)
+            return fn(value)
 
-        return key
+        return value
 
     def get_str(self, key: str) -> str:
         """ Parametrized get str """
-        return self._redit.get(key).decode("utf-8")
+        value = self.get(key)
+        return value.decode("utf-8") if isinstance(value, bytes) else value
 
     def get_int(self, key: str) -> int:
         """ Parametrized get int """
-        value = self._redis.get(key)
-        try:
-            value = int(value.decode('utf-8'))
-        except Exception:
-            value = 0
+        value = self.get(key)
+        return int(value) if isinstance(value, (str, bytes)) else value
 
-        return value
+cache = Cache()
+
+# store
+s1 = cache.store("first")
+print(s1)
+s2 = cache.store("second")
+print(s2)
+s3 = cache.store("third")
+print(s3)
+
+# stored data
+inputs = cache._redis.lrange("{}:inputs".format(cache.store.__qualname__), 0, -1)
+outputs = cache._redis.lrange("{}:outputs".format(cache.store.__qualname__), 0, -1)
+
+print("inputs:", [inp.decode("utf-8") for inp in inputs])
+print("outputs:", [out.decode("utf-8") for out in outputs])
+
+replay(cache.store)
+
